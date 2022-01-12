@@ -1,2 +1,2 @@
 # MCBotter
- block game botter
+ unfinished, yes i am once again abandoning other projects
