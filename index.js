@@ -147,8 +147,8 @@ async function whatBotDo() {
         if (!res2.times) res2.times = Infinity;
         if (!res2.delay) res2.delay = 1000;
     }
-
-    return {res:res, res2:res2}
+    if (res.action) res2.action = res.action;
+    return res2
 }
 
 function some(array, value, includes = false) {
@@ -185,24 +185,36 @@ function randomName(name) {
     return username
 }
 
+function genRandomString(length, numbers=false, capital=false) {
+    let str = ''
+    let chars = 'abcdefghijklmnopqrstuvwxyz'
+    if (numbers) chars += '0123456789'
+    if (capital) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    for (var i = 0; i < length; i++) {
+        str += chars[Math.floor(Math.random() * chars.length)]
+    }
+
+    return str
+}
+
 async function sendBot(username, ip, port) {
     let n = 0;
     for (var i = 0; i < process.botter.bot.amount; i++) {
-        setTimeout(async() => {
+        setTimeout(() => {
             n++
             let name = randomName(username)
             if (process.botter.botlist.includes(name)) console.log(`${name} has already logged in, skipping... (${n}/${process.botter.bot.amount})`)
             else {
-                const bot = await mineflayer.createBot({
+                const bot = mineflayer.createBot({
                     host: ip,
                     port: port,
                     username: name,
                     version: process.botter.server.version || false,
                 })
-
-                await console.log(`Sending ${name} (${n}/${process.botter.bot.amount})`);
+                console.log(`Sending ${name} (${n}/${process.botter.bot.amount})`);
                 bot.once("login", () => {
                     process.botter.botlist.push(name)
+                    doAction(bot, process.botter.action)
                 })
                 bot.once("end", () => {
                     process.botter.botlist.splice(process.botter.botlist.indexOf(name), 1)
@@ -210,17 +222,47 @@ async function sendBot(username, ip, port) {
                 bot.once("kicked", (reason, loggedIn) => {
                     console.log(`Kicked >> ${name} >> ${reason} (Logged In?: ${loggedIn})`)
                 })     
+
+                
             }
         }, i * process.botter.bot.delay);
     }
 }
 
+function doAction(bot, act) {
+    var action = act
+    if (action.action == "spam message" || action.action == "spam dm") {
+        for (var t = 0; t < act.times; t++) {
+            setTimeout(() => {
+                if (action.action == "spam message") bot.chat(action.message + " | " + genRandomString(8, true, true))
+                else {
+                    let players = Object.keys(bot.players)
+                    let username = players[Math.floor(Math.random() * players.length)]
+        
+                    if (players.length > 0 && !process.botter.botlist.includes(username)) bot.whisper(username, action.message + " | " + genRandomString(8, true, true))
+                }
+            }, action.delay * t)
+        }
+    } else if (action.action == "dm others" || action.action == "send message") {
+        if (action.action == "send message") {
+            bot.chat(action.message + " | " + genRandomString(8, true, true))
+        } else {
+            let players = Object.keys(bot.players)
+            for (let i = 0; i < players.length; i++) {
+                if (!process.botter.botlist.includes(players[i])) {
+                    bot.whisper(players[i], action.message + " | " + genRandomString(8, true, true))
+                }
+            }
+        }
+    } else return;
+}
+
 getServerInfo().then(resinfo => {
     getBotInfo().then(resbot => {
-        process.botter = {server: resinfo, bot: resbot, botlist: []};
         whatBotDo().then(resaction => {
+            process.botter = {server: resinfo, bot: resbot, action: resaction, botlist: []};
+
             sendBot(resbot.username, process.botter.server.ip, process.botter.server.port);
-            console.log(resaction)
         })
     })
 });
