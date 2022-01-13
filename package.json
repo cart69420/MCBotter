@@ -12,6 +12,7 @@
   "author": "cart",
   "license": "ISC",
   "dependencies": {
+    "mineflayer": "^3.14.1",
     "prompts": "^2.4.2"
   }
 }

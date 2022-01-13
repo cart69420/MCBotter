@@ -1,5 +1,5 @@
 const prompts = require('prompts');
-
+const mineflayer = require('mineflayer');
 const onCancel = prompt => {
     console.log("Cancelled");
     process.exit(0);
@@ -185,7 +185,7 @@ function randomName(name) {
     return username
 }
 
-async function sendBot(username) {
+async function sendBot(username, ip, port) {
     let n = 0;
     for (var i = 0; i < process.botter.bot.amount; i++) {
         setTimeout(async() => {
@@ -193,8 +193,23 @@ async function sendBot(username) {
             let name = randomName(username)
             if (process.botter.botlist.includes(name)) console.log(`${name} has already logged in, skipping... (${n}/${process.botter.bot.amount})`)
             else {
+                const bot = await mineflayer.createBot({
+                    host: ip,
+                    port: port,
+                    username: name,
+                    version: process.botter.server.version || false,
+                })
+
                 await console.log(`Sending ${name} (${n}/${process.botter.bot.amount})`);
-                process.botter.botlist.push(name)
+                bot.once("login", () => {
+                    process.botter.botlist.push(name)
+                })
+                bot.once("end", () => {
+                    process.botter.botlist.splice(process.botter.botlist.indexOf(name), 1)
+                })
+                bot.once("kicked", (reason, loggedIn) => {
+                    console.log(`Kicked >> ${name} >> ${reason} (Logged In?: ${loggedIn})`)
+                })     
             }
         }, i * process.botter.bot.delay);
     }
@@ -204,7 +219,7 @@ getServerInfo().then(resinfo => {
     getBotInfo().then(resbot => {
         process.botter = {server: resinfo, bot: resbot, botlist: []};
         whatBotDo().then(resaction => {
-            sendBot(resbot.username);
+            sendBot(resbot.username, process.botter.server.ip, process.botter.server.port);
             console.log(resaction)
         })
     })
